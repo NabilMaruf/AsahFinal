@@ -84,8 +84,7 @@ jobs:
           mlflow models build-docker \
             --model-uri "runs:/$RUN_ID/model_py310" \
             --name "$IMAGE_BASE" \
-            --env-manager virtualenv \
-            --install-mlflow
+            --env-manager conda
           docker tag "$IMAGE_BASE" "$IMAGE_BASE:latest"
 
 
