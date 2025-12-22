@@ -43,64 +43,34 @@ def main():
 
     mlflow.set_experiment(args.experiment_name)
 
-    # Autolog OK, tapi jangan log model otomatis (biar model cuma 1: model_py310)
-    mlflow.sklearn.autolog(log_models=False)
+mlflow.sklearn.autolog(log_models=False)
 
-    model = LogisticRegression(max_iter=2000)
+with mlflow.start_run(run_name=args.run_name):
+    model.fit(X_train, y_train)
 
-    # ⬇️ pakai "as run" supaya bisa ambil run_id
-    with mlflow.start_run(run_name=args.run_name) as run:
-        # simpan run_id untuk workflow (jangan scan mlruns lagi)
-        out_dir = Path("ci_outputs")
-        out_dir.mkdir(parents=True, exist_ok=True)
-        (out_dir / "run_id.txt").write_text(run.info.run_id)
+    y_pred = model.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+    f1  = f1_score(y_test, y_pred)
 
-        # TRAIN
-        model.fit(X_train, y_train)
+    mlflow.log_metric("test_accuracy_manual", float(acc))
+    mlflow.log_metric("test_f1_manual", float(f1))
 
-        # EVAL
-        y_pred = model.predict(X_test)
-        acc = accuracy_score(y_test, y_pred)
-        f1 = f1_score(y_test, y_pred)
+    # ✅ Log model dengan pip_requirements (ini akan bikin python_env.yaml ikut terekam)
+    mlflow.sklearn.log_model(
+        sk_model=model,
+        artifact_path="model_py310",
+        pip_requirements=[
+            "mlflow==2.16.2",
+            "scikit-learn",
+            "pandas",
+            "numpy",
+            # optional tapi aman:
+            "pyarrow==14.0.2",
+        ],
+    )
 
-        mlflow.log_metric("test_accuracy_manual", float(acc))
-        mlflow.log_metric("test_f1_manual", float(f1))
-
-        auc = None
-        if hasattr(model, "predict_proba"):
-            y_proba = model.predict_proba(X_test)[:, 1]
-            auc = roc_auc_score(y_test, y_proba)
-            mlflow.log_metric("test_auc_manual", float(auc))
-
-        # ✅ conda_env eksplisit python 3.10
-        conda_env = {
-            "name": "mlflow-py310-env",
-            "channels": ["conda-forge"],
-            "dependencies": [
-                "python=3.10",
-                "pip",
-                {"pip": [
-                    "mlflow==2.16.2",
-                    "scikit-learn",
-                    "pandas",
-                    "numpy",
-                    "pyarrow==14.0.2"
-                ]},
-            ],
-        }
-
-        mlflow.sklearn.log_model(
-            sk_model=model,
-            artifact_path="model_py310",
-            conda_env=conda_env
-        )
-
-        print("✅ Training selesai")
-        msg = f"Accuracy={acc:.4f} | F1={f1:.4f}"
-        if auc is not None:
-            msg += f" | AUC={auc:.4f}"
-        print(msg)
-
+    print("✅ Training selesai")
+    print(f"Accuracy={acc:.4f} | F1={f1:.4f}")
 
 if __name__ == "__main__":
     main()
