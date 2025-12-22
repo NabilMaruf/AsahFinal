@@ -75,4 +75,10 @@ jobs:
       - name: Build Docker Image with MLflow & Push
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          MLFLOW_DOCKER_PYTHON_VERS_
+          MLFLOW_TRACKING_URI: file:${{ github.workspace }}/mlruns
+          MLFLOW_DOCKER_PYTHON_VERSION: "3.11"
+        run: |
+          RUN_ID=$(cat ci_artifacts/run_id.txt)
+          IMAGE_NAME="${DOCKERHUB_USERNAME}/heartdisease-mlflow:latest"
+          mlflow models build-docker -m "runs:/$RUN_ID/model" -n "$IMAGE_NAME"
+          docker push "$IMAGE_NAME"
