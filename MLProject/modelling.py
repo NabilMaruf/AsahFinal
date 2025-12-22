@@ -79,7 +79,13 @@ def main():
             "dependencies": [
                 "python=3.10",
                 "pip",
-                {"pip": ["mlflow==2.14.1", "scikit-learn", "pandas", "numpy"]},
+                {"pip": [
+                    "mlflow==2.16.2",
+                    "scikit-learn",
+                    "pandas",
+                    "numpy",
+                    "pyarrow==14.0.2"
+                ]},
             ],
         }
 
