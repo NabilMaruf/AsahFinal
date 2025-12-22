@@ -46,7 +46,20 @@ jobs:
             --data-dir MLProject/heart_preprocessed \
             --experiment-name HeartDisease_CI \
             --run-name ci-retrain
-
+            
+      - name: Collect CI outputs (run_id)
+        run: |
+          RUN_ID_FILE=$(find . -name run_id.txt | head -n 1)
+          if [ -z "$RUN_ID_FILE" ]; then
+            echo "run_id.txt tidak ditemukan!"
+            find . -maxdepth 4 -type f
+            exit 1
+          fi
+      
+          mkdir -p ci_artifacts
+          cp "$RUN_ID_FILE" ci_artifacts/run_id.txt
+          cat ci_artifacts/run_id.txt
+          
       # 2) Simpan artefak (mlruns)
       - name: Upload MLflow runs
         uses: actions/upload-artifact@v4
