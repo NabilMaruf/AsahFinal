@@ -7,7 +7,6 @@ on:
       - "MLProject/**"
       - ".github/workflows/ci_advanced.yml"
   workflow_dispatch:
-
 jobs:
   advanced:
     runs-on: ubuntu-latest
