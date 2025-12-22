@@ -35,6 +35,10 @@ jobs:
           echo "MLProject/heart_preprocessed:"
           ls -la MLProject/heart_preprocessed
 
+      - name: Prepare output directory
+        run: |
+          mkdir -p ci_outputs
+      
       - name: Run MLflow Project (training)
         run: |
           mlflow run ./MLProject \
