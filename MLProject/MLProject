@@ -1,12 +1,7 @@
-name: heart_disease_ci
+name: workflow-ci
 
 conda_env: conda.yaml
 
 entry_points:
   main:
-    parameters:
-      data_dir: {type: path, default: heart_preprocessed}
-      experiment_name: {type: str, default: HeartDisease_CI}
-      run_name: {type: str, default: ci_train}
-      out_dir: {type: path, default: ci_outputs}
-    command: "python modelling.py --data-dir {data_dir} --experiment-name {experiment_name} --run-name {run_name} --out-dir {out_dir}"
+    command: "python modelling.py"
