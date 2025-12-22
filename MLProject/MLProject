@@ -1,7 +1,9 @@
 name: workflow-ci
 
-conda_env: conda.yaml
-
 entry_points:
   main:
-    command: "python modelling.py"
+    command: >
+      python modelling.py
+      --data-dir namadataset_preprocessing
+      --experiment-name HeartDisease_CI
+      --run-name ci-retrain
