@@ -29,30 +29,25 @@ def load_split(data_dir: str):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data-dir", default="heart_preprocessed")
-    parser.add_argument("--experiment-name", default="HeartDisease_CI")
-    parser.add_argument("--run-name", default="ci-retrain")
-    args = parser.parse_args()
-
-    if os.getenv("MLFLOW_TRACKING_URI") is None:
-        mlflow.set_tracking_uri(f"file:{Path.cwd() / 'mlruns'}")
-
-    X_train, X_test, y_train, y_test = load_split(args.data_dir)
-
+    ...
     mlflow.set_experiment(args.experiment_name)
 
-    # 🔹 Autolog BOLEH, tapi jangan log model otomatis
     mlflow.sklearn.autolog(log_models=False)
 
     model = LogisticRegression(max_iter=2000)
 
-    with mlflow.start_run(run_name=args.run_name):
+    # 🔴 INI TEMPATNYA
+    with mlflow.start_run(run_name=args.run_name) as run:
 
-        # 1️⃣ TRAIN
+        # ✅ TULIS RUN_ID DI AWAL RUN
+        from pathlib import Path
+        Path("ci_outputs").mkdir(exist_ok=True)
+        Path("ci_outputs/run_id.txt").write_text(run.info.run_id)
+
+        # ====== TRAINING ======
         model.fit(X_train, y_train)
 
-        # 2️⃣ EVALUASI
+        # ====== EVALUASI ======
         y_pred = model.predict(X_test)
         acc = accuracy_score(y_test, y_pred)
         f1  = f1_score(y_test, y_pred)
@@ -60,7 +55,7 @@ def main():
         mlflow.log_metric("test_accuracy_manual", float(acc))
         mlflow.log_metric("test_f1_manual", float(f1))
 
-        # 3️⃣ CONDA ENV (DI SINI)
+        # ====== LOG MODEL ======
         conda_env = {
             "name": "mlflow-py310-env",
             "channels": ["conda-forge"],
@@ -78,7 +73,6 @@ def main():
             ]
         }
 
-        # 4️⃣ LOG MODEL (DI SINI)
         mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path="model_py310",
