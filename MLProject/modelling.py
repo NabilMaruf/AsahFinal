@@ -8,7 +8,6 @@ from sklearn.linear_model import LogisticRegression
 import mlflow
 import mlflow.sklearn
 
-
 def load_split(data_dir: str):
     X_train = pd.read_csv(os.path.join(data_dir, "X_train.csv"))
     X_test  = pd.read_csv(os.path.join(data_dir, "X_test.csv"))
