@@ -2,7 +2,7 @@ name: CI Retraining + Save Artifacts + Build Docker (Advanced)
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
     paths:
       - "MLProject/**"
       - ".github/workflows/ci_advanced.yml"
@@ -24,54 +24,23 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install mlflow pandas scikit-learn joblib numpy
-
-      - name: Debug structure (verify dataset exists)
-        run: |
-          echo "ROOT:"
-          ls -la
-          echo "MLProject:"
-          ls -la MLProject
-          echo "MLProject/heart_preprocessed:"
-          ls -la MLProject/heart_preprocessed
-
-      - name: Prepare output directories
-        run: |
-          mkdir -p ci_outputs
-          mkdir -p ci_artifacts
-          mkdir -p mlruns
+          pip install mlflow pandas scikit-learn joblib
 
       - name: Run MLflow Project (training)
-        env:
-          MLFLOW_TRACKING_URI: "file:${{ github.workspace }}/mlruns"
-          MLFLOW_RUN_ID: ""
-          MLFLOW_EXPERIMENT_ID: ""
         run: |
-          mlflow run ./MLProject --env-manager=local \
-            -P data_dir=MLProject/heart_preprocessed \
-            -P experiment_name=HeartDisease_CI \
-            -P run_name=ci_train \
-            -P out_dir=ci_outputs
+          mlflow run . -P data_dir=heart_preprocessed -P experiment_name=HeartDisease_CI -P run_name=ci_train -P out_dir=ci_outputs
 
       - name: Collect CI outputs (run_id, metrics)
         run: |
-          RUN_ID_FILE=$(find ci_outputs -name run_id.txt | head -n 1)
+          RUN_ID_FILE=$(find . -name run_id.txt | head -n 1)
           if [ -z "$RUN_ID_FILE" ]; then
-            echo "run_id.txt tidak ditemukan di ci_outputs."
-            echo "DEBUG: list ci_outputs"
-            find ci_outputs -maxdepth 4 -type f -print || true
-            echo "DEBUG: list mlruns"
-            find mlruns -maxdepth 4 -type f -print || true
+            echo "run_id.txt tidak ditemukan."
             exit 1
           fi
-
+          mkdir -p ci_artifacts
           cp "$RUN_ID_FILE" ci_artifacts/run_id.txt
-
-          METRICS_FILE="$(dirname "$RUN_ID_FILE")/metrics_summary.txt"
-          if [ -f "$METRICS_FILE" ]; then
-            cp "$METRICS_FILE" ci_artifacts/metrics_summary.txt
-          fi
-
+          METRICS_FILE=$(dirname "$RUN_ID_FILE")/metrics_summary.txt
+          if [ -f "$METRICS_FILE" ]; then cp "$METRICS_FILE" ci_artifacts/metrics_summary.txt; fi
           echo "RUN_ID:"
           cat ci_artifacts/run_id.txt
 
@@ -90,12 +59,9 @@ jobs:
       - name: Build Docker Image with MLflow & Push
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          MLFLOW_TRACKING_URI: "file:${{ github.workspace }}/mlruns"
         run: |
           RUN_ID=$(cat ci_artifacts/run_id.txt)
           IMAGE_NAME="${DOCKERHUB_USERNAME}/heartdisease-mlflow:latest"
-
-          # Pastikan di modelling.py kamu log model dengan artifact_path="model"
           mlflow models build-docker -m "runs:/$RUN_ID/model" -n "$IMAGE_NAME"
           docker push "$IMAGE_NAME"
 
