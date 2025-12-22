@@ -2,8 +2,12 @@ name: workflow-ci
 
 entry_points:
   main:
+    parameters:
+      data_dir: {type: path, default: "heart_preprocessed"}
+      experiment_name: {type: str, default: "HeartDisease_CI"}
+      run_name: {type: str, default: "ci-retrain"}
     command: >
       python modelling.py
-      --data-dir namadataset_preprocessing
-      --experiment-name HeartDisease_CI
-      --run-name ci-retrain
+      --data-dir {data_dir}
+      --experiment-name {experiment_name}
+      --run-name {run_name}
