@@ -75,6 +75,13 @@ jobs:
           echo "RUN_ID=$RUN_ID"
           cat mlruns/*/$RUN_ID/artifacts/model_py310/conda.yaml || true
 
+      - name: Debug - show python_env.yaml
+        env:
+          RUN_ID: ${{ steps.get_run.outputs.run_id }}
+        run: |
+          cat mlruns/*/$RUN_ID/artifacts/model_py310/python_env.yaml || true
+          cat mlruns/*/$RUN_ID/artifacts/model_py310/requirements.txt || true
+
       - name: Build Docker image
         env:
           RUN_ID: ${{ steps.get_run.outputs.run_id }}
@@ -84,9 +91,8 @@ jobs:
           mlflow models build-docker \
             --model-uri "runs:/$RUN_ID/model_py310" \
             --name "$IMAGE_BASE" \
-            --env-manager conda
+            --env-manager local
           docker tag "$IMAGE_BASE" "$IMAGE_BASE:latest"
-
 
       - name: Push Docker image
         env:
