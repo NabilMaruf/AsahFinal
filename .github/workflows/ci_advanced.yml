@@ -38,7 +38,7 @@ jobs:
       - name: Run MLflow Project (training)
         run: |
           mlflow run ./MLProject \
-            -P data_dir=heart_preprocessed \
+            -P data_dir=MLProject/heart_preprocessed \
             -P experiment_name=HeartDisease_CI \
             -P run_name=ci_train \
             -P out_dir=ci_outputs
