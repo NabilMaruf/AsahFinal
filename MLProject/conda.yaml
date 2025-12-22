@@ -1,11 +1,1 @@
-name: workflow-ci-env
-channels:
-  - conda-forge
-dependencies:
-  - python=3.10
-  - pip
-  - pip:
-      - mlflow==2.14.1
-      - pandas
-      - scikit-learn
-      - numpy
+
