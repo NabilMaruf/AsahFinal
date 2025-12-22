@@ -42,12 +42,12 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install mlflow pandas scikit-learn joblib virtualenv
+          pip install mlflow pandas scikit-learn joblib numpy
       
       - name: Run MLflow Project (training)
         run: |
           mkdir -p ci_outputs
-          mlflow run ./MLProject --env-manager=virtualenv \
+          mlflow run ./MLProject --env-manager=local \
             -P data_dir=MLProject/heart_preprocessed \
             -P experiment_name=HeartDisease_CI \
             -P run_name=ci_train \
