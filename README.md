@@ -1,6 +1,6 @@
 # Workflow-CI (Kriteria 3 - Advanced)
 
-## Checklist yang dipenuhi
+## Checklist yang dipenuhi 
 - ✅ Ada folder `MLProject`
 - ✅ Ada workflow CI (GitHub Actions) untuk retraining otomatis
 - ✅ Artefak CI disimpan (Actions Artifacts)
