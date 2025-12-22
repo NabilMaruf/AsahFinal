@@ -38,10 +38,16 @@ jobs:
       - name: Prepare output directory
         run: |
           mkdir -p ci_outputs
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install mlflow pandas scikit-learn joblib virtualenv
       
       - name: Run MLflow Project (training)
         run: |
-          mlflow run ./MLProject \
+          mkdir -p ci_outputs
+          mlflow run ./MLProject --env-manager=virtualenv \
             -P data_dir=MLProject/heart_preprocessed \
             -P experiment_name=HeartDisease_CI \
             -P run_name=ci_train \
