@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # Paksa MLflow pakai folder mlruns di workspace (biar runs:/... bisa resolve)
       MLFLOW_TRACKING_URI: file:${{ github.workspace }}/mlruns
 
     steps:
@@ -22,31 +21,30 @@ jobs:
 
       - name: Setup Python
         uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install mlflow==2.14.1 pandas scikit-learn numpy
+          pip install mlflow==2.14.1 pandas scikit-learn numpy joblib
 
-      # (Opsional tapi sangat membantu kalau ada typo path)
-      - name: Debug - list project files
+      - name: Debug project structure
         run: |
-          echo "PWD=$(pwd)"
+          pwd
           ls -la
-          ls -la MLProject || true
-          echo "=== Dataset folder (expected) ==="
-          ls -la MLProject/heart_preprocessed || true
-          echo "=== Find CSV in MLProject ==="
-          find MLProject -maxdepth 3 -type f -name "*.csv" | sort
+          ls -la MLProject
+          ls -la MLProject/heart_preprocessed
 
-      # 1) Retrain model
+      # 1️⃣ Training
       - name: Run training
         run: |
           python MLProject/modelling.py \
             --data-dir MLProject/heart_preprocessed \
             --experiment-name HeartDisease_CI \
             --run-name ci-retrain
-            
+
+      # 2️⃣ Ambil run_id
       - name: Collect CI outputs (run_id)
         run: |
           RUN_ID_FILE=$(find . -name run_id.txt | head -n 1)
@@ -55,76 +53,27 @@ jobs:
             find . -maxdepth 4 -type f
             exit 1
           fi
-      
+
           mkdir -p ci_artifacts
           cp "$RUN_ID_FILE" ci_artifacts/run_id.txt
           cat ci_artifacts/run_id.txt
-          
-      # 2) Simpan artefak (mlruns)
+
+      # 3️⃣ Upload MLflow tracking
       - name: Upload MLflow runs
         uses: actions/upload-artifact@v4
         with:
           name: mlruns
           path: mlruns
-          if-no-files-found: error
 
-      # 3) Ambil run_id terbaru dari mlruns
-      - name: Get latest run_id
-        id: get_run
-        run: |
-          python - << 'PY'
-          import os
-          import glob
-
-          base = "mlruns"
-          if not os.path.isdir(base):
-              raise SystemExit("Folder 'mlruns' tidak ditemukan. Training mungkin gagal membuat tracking store.")
-
-          run_dirs = []
-          for exp_dir in glob.glob(os.path.join(base, "*")):
-              if not os.path.isdir(exp_dir):
-                  continue
-              if os.path.basename(exp_dir) in [".trash", "models"]:
-                  continue
-
-              for rdir in glob.glob(os.path.join(exp_dir, "*")):
-                  if os.path.isdir(rdir) and os.path.exists(os.path.join(rdir, "meta.yaml")):
-                      run_dirs.append(rdir)
-
-          if not run_dirs:
-              raise SystemExit("Tidak ada run MLflow ditemukan di 'mlruns'. Pastikan modelling.py membuat MLflow run.")
-
-          latest = max(run_dirs, key=os.path.getmtime)
-          run_id = os.path.basename(latest)
-          print("LATEST_RUN_DIR:", latest)
-          print("RUN_ID:", run_id)
-
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"run_id={run_id}\n")
-          PY
-
-      # 4) Login Docker Hub
+      # 4️⃣ Login Docker Hub
       - name: Login DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-     # 5) Build Docker image dari model MLflow (artifact path = "model")
+      # 5️⃣ Build & Push Docker image
       - name: Build Docker Image with MLflow & Push
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          MLFLOW_TRACKING_URI: "file:${{ github.workspace }}/mlruns"
-          MLFLOW_DOCKER_PYTHON_VERSION: "3.11"
-        run: |
-          RUN_ID=$(cat ci_artifacts/run_id.txt)
-          IMAGE_NAME="${DOCKERHUB_USERNAME}/heartdisease-mlflow:latest"
-          mlflow models build-docker -m "runs:/$RUN_ID/model" -n "$IMAGE_NAME"
-          docker push "$IMAGE_NAME"
-          
-      # 6) Push ke Docker Hub
-      - name: Push Docker image
-        env:
-          IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/heart-ci:latest
-        run: |
-          docker push "$IMAGE_NAME"
+          MLFLOW_DOCKER_PYTHON_VERS_
