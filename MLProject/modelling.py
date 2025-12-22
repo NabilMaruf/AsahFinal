@@ -8,6 +8,14 @@ from sklearn.linear_model import LogisticRegression
 import mlflow
 import mlflow.sklearn
 
+from pathlib import Path
+import mlflow
+
+with mlflow.start_run(run_name=args.run_name) as run:
+    out_dir = Path("ci_outputs")  # atau args.out_dir kalau ada
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "run_id.txt").write_text(run.info.run_id)
+
 def load_split(data_dir: str):
     X_train = pd.read_csv(os.path.join(data_dir, "X_train.csv"))
     X_test  = pd.read_csv(os.path.join(data_dir, "X_test.csv"))
