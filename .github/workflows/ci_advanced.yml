@@ -15,7 +15,7 @@ jobs:
     env:
       EXPERIMENT_NAME: HeartDisease_CI
       RUN_NAME: ci-retrain
-      DATA_DIR: MLProject/heart_preprocessed
+      DATA_DIR: heart_preprocessed
 
     steps:
       - name: Checkout
@@ -31,29 +31,40 @@ jobs:
           python -m pip install --upgrade pip
           pip install "mlflow==2.16.2" pandas scikit-learn numpy
 
-      # (Opsional tapi bagus) biar runs:/ resolve selalu konsisten
       - name: Set MLflow tracking to local folder
         run: |
           echo "MLFLOW_TRACKING_URI=file:${GITHUB_WORKSPACE}/mlruns" >> $GITHUB_ENV
           echo "MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING=false" >> $GITHUB_ENV
 
-      # 1) Retrain via MLflow Project (PAKAI env-manager local -> no conda activate error)
+      - name: Debug - verify files
+        run: |
+          ls -la
+          ls -la MLProject
+          echo "---- MLproject content ----"
+          cat MLProject/MLproject
+          echo "---- dataset listing ----"
+          ls -la MLProject/heart_preprocessed
+          echo "---- csv files ----"
+          find MLProject/heart_preprocessed -maxdepth 1 -type f -name "*.csv" | sort
+
+      # 1) Retrain via MLflow Project (local env manager = no conda)
       - name: MLflow Project - Train (local env manager)
         run: |
-          mlflow run MLProject \
+          mlflow run MLProject -e main \
             --env-manager local \
             -P data_dir="${{ env.DATA_DIR }}" \
             -P experiment_name="${{ env.EXPERIMENT_NAME }}" \
             -P run_name="${{ env.RUN_NAME }}"
 
-      # 2) Upload artifact mlruns (Skilled requirement: simpan artefak ke repo/drive)
+      # 2) Upload artifact mlruns
       - name: Upload MLflow runs (mlruns)
         uses: actions/upload-artifact@v4
         with:
           name: mlruns
           path: mlruns
+          if-no-files-found: error
 
-      # 3) Ambil run_id terbaru dari experiment (lebih robust daripada glob manual)
+      # 3) Get latest run_id from experiment
       - name: Get latest run_id
         id: get_run
         run: |
@@ -71,7 +82,7 @@ jobs:
 
           exp = client.get_experiment_by_name(exp_name)
           if exp is None:
-            raise SystemExit(f"Experiment '{exp_name}' not found. Pastikan training step berhasil dan experiment_name benar.")
+            raise SystemExit(f"Experiment '{exp_name}' not found.")
 
           runs = client.search_runs(
             experiment_ids=[exp.experiment_id],
@@ -79,7 +90,7 @@ jobs:
             max_results=1
           )
           if not runs:
-            raise SystemExit("Tidak ada run ditemukan. Pastikan modelling.py benar-benar mlflow.start_run dan log_model.")
+            raise SystemExit("Tidak ada run ditemukan.")
 
           run_id = runs[0].info.run_id
           print("LATEST_RUN_ID:", run_id)
@@ -95,8 +106,8 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 5) Build Docker image dari model MLflow
-      # PENTING: pakai --env-manager local biar tidak jatuh ke Dockerfile python3.8
+      # 5) Build docker image from MLflow model
+      # Jika artifact model kamu bukan "model", ganti /model jadi nama artifact yang benar.
       - name: Build Docker image (mlflow build-docker)
         run: |
           mlflow models build-docker \
@@ -104,7 +115,7 @@ jobs:
             --name "${{ secrets.DOCKERHUB_USERNAME }}/heart-ci:latest" \
             --env-manager local
 
-      # 6) Push ke Docker Hub
+      # 6) Push
       - name: Push Docker image
         run: |
           docker push "${{ secrets.DOCKERHUB_USERNAME }}/heart-ci:latest"
