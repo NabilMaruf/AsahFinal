@@ -11,8 +11,6 @@ on:
 jobs:
   advanced:
     runs-on: ubuntu-latest
-
-    # ✅ Tracking lokal di repo (di dalam folder MLProject/mlruns)
     env:
       MLFLOW_TRACKING_URI: file:${{ github.workspace }}/MLProject/mlruns
 
@@ -25,10 +23,12 @@ jobs:
         with:
           python-version: "3.10"
 
+      # ✅ FIX utama: pin numpy < 2 + pyarrow versi aman
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install mlflow==2.16.2 pandas scikit-learn numpy pyarrow==14.0.2
+          pip install "numpy==1.26.4" "pyarrow==14.0.2" \
+            mlflow==2.16.2 pandas scikit-learn
 
       - name: Debug - list files
         run: |
@@ -37,9 +37,9 @@ jobs:
           ls -la MLProject/heart_preprocessed || true
           find MLProject -maxdepth 3 -type f -name "*.csv" | sort
           echo "MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI"
+          python -c "import numpy, pyarrow; print('numpy', numpy.__version__, '| pyarrow', pyarrow.__version__)"
 
-      # ✅ WAJIB: retraining via MLflow Project (bukan python langsung)
-      # ✅ NO conda: jalankan di env runner (pip) dengan --env-manager local
+      # ✅ WAJIB: retraining via MLflow Project (bukan python manual)
       - name: Run training (MLflow Project - local env)
         run: |
           cd MLProject
@@ -48,7 +48,6 @@ jobs:
             -P experiment_name=HeartDisease_CI \
             -P run_name=ci-retrain
 
-      # ✅ Upload tracking results
       - name: Upload MLflow runs
         uses: actions/upload-artifact@v4
         with:
@@ -56,7 +55,6 @@ jobs:
           path: MLProject/mlruns
           if-no-files-found: error
 
-      # ✅ ambil run_id dari file yang dibuat modelling.py
       - name: Get run_id from file
         id: get_run
         run: |
@@ -71,21 +69,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Debug - MLflow version
-        run: |
-          python -c "import mlflow; print('MLflow:', mlflow.__version__)"
-
-      # (opsional) debug isi model env
-      - name: Debug - show model env files
-        env:
-          RUN_ID: ${{ steps.get_run.outputs.run_id }}
-        run: |
-          echo "RUN_ID=$RUN_ID"
-          ls -la MLProject/mlruns/*/$RUN_ID/artifacts || true
-          cat MLProject/mlruns/*/$RUN_ID/artifacts/model_py310/conda.yaml || true
-          cat MLProject/mlruns/*/$RUN_ID/artifacts/model_py310/python_env.yaml || true
-          cat MLProject/mlruns/*/$RUN_ID/artifacts/model_py310/requirements.txt || true
 
       - name: Build Docker image
         env:
