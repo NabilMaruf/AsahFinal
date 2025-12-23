@@ -35,11 +35,13 @@ jobs:
           ls -la MLProject/heart_preprocessed || true
           find MLProject -maxdepth 3 -type f -name "*.csv" | sort
 
-      # ✅ jalankan dari dalam folder MLProject (konteks benar)
-      - name: Run training
+      - name: Run training (MLflow Project)
         run: |
           cd MLProject
-          python modelling.py --data-dir heart_preprocessed --experiment-name HeartDisease_CI --run-name ci-retrain
+          mlflow run . \
+            -P data_dir=heart_preprocessed \
+            -P experiment_name=HeartDisease_CI \
+            -P run_name=ci-retrain
 
       - name: Upload MLflow runs
         uses: actions/upload-artifact@v4
