@@ -12,30 +12,41 @@ jobs:
   advanced:
     runs-on: ubuntu-latest
     env:
-      MLFLOW_TRACKING_URI: file:${{ github.workspace }}/mlruns
+      MLFLOW_TRACKING_URI: file:${{ github.workspace }}/MLProject/mlruns
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      # ✅ Miniconda supaya MLflow Projects (conda_env) bisa "activate"
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          auto-update-conda: true
           python-version: "3.10"
+          miniforge-variant: Mambaforge
+          use-mamba: true
+          auto-activate-base: true
 
-      - name: Install dependencies
+      # ✅ Install MLflow di runner (host)
+      - name: Install dependencies (host)
+        shell: bash -l {0}
         run: |
           python -m pip install --upgrade pip
           pip install mlflow==2.16.2 pandas scikit-learn numpy
 
       - name: Debug - list files
+        shell: bash -l {0}
         run: |
           ls -la
           ls -la MLProject || true
           ls -la MLProject/heart_preprocessed || true
           find MLProject -maxdepth 3 -type f -name "*.csv" | sort
+          echo "MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI"
 
+      # ✅ WAJIB: retraining via MLflow Project (bukan python manual)
       - name: Run training (MLflow Project)
+        shell: bash -l {0}
         run: |
           cd MLProject
           mlflow run . \
@@ -43,16 +54,18 @@ jobs:
             -P experiment_name=HeartDisease_CI \
             -P run_name=ci-retrain
 
+      # ✅ Upload mlruns yang benar (biasanya ada di MLProject/mlruns)
       - name: Upload MLflow runs
         uses: actions/upload-artifact@v4
         with:
           name: mlruns
-          path: mlruns
+          path: MLProject/mlruns
           if-no-files-found: error
 
-      # ✅ ambil run_id dari file yang dibuat modelling.py
+      # ✅ Ambil run_id dari file yang dibuat modelling.py
       - name: Get run_id from file
         id: get_run
+        shell: bash -l {0}
         run: |
           echo "=== ci_outputs ==="
           ls -la MLProject/ci_outputs || true
@@ -65,29 +78,33 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          
+
       - name: Debug - MLflow version
+        shell: bash -l {0}
         run: |
           python -c "import mlflow; print('MLflow:', mlflow.__version__)"
-      
+
       - name: Debug - show model conda.yaml
         env:
           RUN_ID: ${{ steps.get_run.outputs.run_id }}
+        shell: bash -l {0}
         run: |
           echo "RUN_ID=$RUN_ID"
-          cat mlruns/*/$RUN_ID/artifacts/model_py310/conda.yaml || true
+          cat MLProject/mlruns/*/$RUN_ID/artifacts/model_py310/conda.yaml || true
 
       - name: Debug - show python_env.yaml
         env:
           RUN_ID: ${{ steps.get_run.outputs.run_id }}
+        shell: bash -l {0}
         run: |
-          cat mlruns/*/$RUN_ID/artifacts/model_py310/python_env.yaml || true
-          cat mlruns/*/$RUN_ID/artifacts/model_py310/requirements.txt || true
+          cat MLProject/mlruns/*/$RUN_ID/artifacts/model_py310/python_env.yaml || true
+          cat MLProject/mlruns/*/$RUN_ID/artifacts/model_py310/requirements.txt || true
 
       - name: Build Docker image
         env:
           RUN_ID: ${{ steps.get_run.outputs.run_id }}
           IMAGE_BASE: ${{ secrets.DOCKERHUB_USERNAME }}/heart-ci
+        shell: bash -l {0}
         run: |
           cd MLProject
           mlflow models build-docker \
@@ -99,5 +116,6 @@ jobs:
       - name: Push Docker image
         env:
           IMAGE_BASE: ${{ secrets.DOCKERHUB_USERNAME }}/heart-ci
+        shell: bash -l {0}
         run: |
           docker push "$IMAGE_BASE:latest"
