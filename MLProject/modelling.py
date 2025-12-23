@@ -37,32 +37,34 @@ def main():
     parser.add_argument("--run-name", default="ci-retrain")
     args = parser.parse_args()
 
-    # tracking uri dari env CI (kalau ada)
+    # Tracking URI dari CI (kalau ada)
     tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
     if tracking_uri:
         mlflow.set_tracking_uri(tracking_uri)
     else:
         mlflow.set_tracking_uri(f"file:{Path.cwd() / 'mlruns'}")
 
-    # set experiment (boleh, aman)
+    # set experiment
     mlflow.set_experiment(args.experiment_name)
 
     X_train, X_test, y_train, y_test = load_split(args.data_dir)
     model = LogisticRegression(max_iter=2000)
 
-    # ✅ IMPORTANT:
-    # Kalau dijalankan lewat `mlflow run`, MLflow Projects sudah bikin active run.
-    # Jadi kita pakai active run kalau ada, kalau tidak ada baru start_run.
-    active = mlflow.active_run()
-    started_here = False
-    if active is None:
-        run = mlflow.start_run(run_name=args.run_name)
-        started_here = True
-    else:
-        run = active
+    # ✅ KUNCI FIX:
+    # Kalau dijalankan lewat `mlflow run`, MLflow Projects set env MLFLOW_RUN_ID.
+    env_run_id = os.getenv("MLFLOW_RUN_ID")
 
-    try:
-        # simpan run_id buat CI (build docker)
+    started_here = False
+    if env_run_id:
+        # attach ke run milik MLflow Projects
+        run_ctx = mlflow.start_run(run_id=env_run_id)
+    else:
+        # kalau jalan manual (python modelling.py) baru bikin run baru
+        run_ctx = mlflow.start_run(run_name=args.run_name)
+        started_here = True
+
+    with run_ctx as run:
+        # simpan run_id buat step CI build-docker
         out_dir = Path("ci_outputs")
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / "run_id.txt").write_text(run.info.run_id, encoding="utf-8")
@@ -89,7 +91,7 @@ def main():
             except Exception:
                 pass
 
-        # log model untuk build-docker (path konsisten)
+        # log model untuk docker build
         conda_env = {
             "name": "mlflow-py310-env",
             "channels": ["conda-forge"],
@@ -114,9 +116,8 @@ def main():
 
         print(f"✅ DONE | run_id={run.info.run_id} | acc={acc:.4f} | f1={f1:.4f}")
 
-    finally:
-        if started_here:
-            mlflow.end_run()
+    # kalau run dibuat manual, end_run otomatis oleh context manager sudah cukup.
+    # (nggak perlu end_run tambahan)
 
 
 if __name__ == "__main__":
