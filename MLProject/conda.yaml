@@ -1,11 +1,14 @@
 name: workflow-ci
-channels:
-  - conda-forge
-dependencies:
-  - python=3.10
-  - pip
-  - pip:
-      - mlflow==2.16.2
-      - pandas
-      - scikit-learn
-      - numpy
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      data_dir: {type: path, default: "heart_preprocessed"}
+      experiment_name: {type: str, default: "HeartDisease_CI"}
+      run_name: {type: str, default: "ci-retrain"}
+    command: >
+      python modelling.py
+      --data-dir {data_dir}
+      --experiment-name {experiment_name}
+      --run-name {run_name}
